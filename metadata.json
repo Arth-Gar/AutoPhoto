@@ -1,0 +1,6 @@
+{
+  "name": "autophoto",
+  "description": "Webcam rápida e divertida no navegador com formato 3x4, filtros de luz e P&B, stickers e galeria.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
