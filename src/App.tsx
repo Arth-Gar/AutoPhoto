@@ -6,9 +6,9 @@ import {
   PlacedSticker,
   StickerTemplate,
   UserProfile,
-  AdCreative,
   Language,
 } from './types';
+import { initGoogleAdManager } from './utils/adManager';
 import { FILTER_PRESETS } from './data/filters';
 import { STICKER_TEMPLATES } from './data/stickers';
 import { soundManager } from './utils/audio';
@@ -17,6 +17,8 @@ import { TRANSLATIONS } from './i18n/translations';
 import { Header } from './components/Header';
 import { TopAdBanner } from './components/TopAdBanner';
 import { AnchorAdBanner } from './components/AnchorAdBanner';
+import { SmallLeaderboardAd } from './components/SmallLeaderboardAd';
+import { WebInterstitialAd } from './components/WebInterstitialAd';
 import { WebcamView } from './components/WebcamView';
 import { StickerDrawer } from './components/StickerDrawer';
 import { PhotoEditorModal } from './components/PhotoEditorModal';
@@ -33,6 +35,7 @@ import {
   Check,
   Plus,
   Trash2,
+  ChevronDown,
 } from 'lucide-react';
 
 const STORAGE_KEY_PHOTOS = 'autophoto_saved_photos_v1';
@@ -95,6 +98,8 @@ export default function App() {
   // Photos & Gallery
   const [photos, setPhotos] = useState<CapturedPhoto[]>([]);
   const [activePhotoForEditor, setActivePhotoForEditor] = useState<CapturedPhoto | null>(null);
+  const [pendingPhotoForInterstitial, setPendingPhotoForInterstitial] = useState<CapturedPhoto | null>(null);
+  const [isInterstitialOpen, setIsInterstitialOpen] = useState<boolean>(false);
 
   // UI Drawers & Modals
   const [isStickerDrawerOpen, setIsStickerDrawerOpen] = useState<boolean>(false);
@@ -104,12 +109,32 @@ export default function App() {
   const [isGoogleAuthOpen, setIsGoogleAuthOpen] = useState<boolean>(false);
   const [isHelpOpen, setIsHelpOpen] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [isAspectDropdownOpen, setIsAspectDropdownOpen] = useState<boolean>(false);
+  const aspectDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close aspect dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      if (aspectDropdownRef.current && !aspectDropdownRef.current.contains(e.target as Node)) {
+        setIsAspectDropdownOpen(false);
+      }
+    };
+    if (isAspectDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [isAspectDropdownOpen]);
 
   // User Profile
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
-  // Load saved data on mount
+  // Load saved data on mount and initialize Google Ad Manager
   useEffect(() => {
+    initGoogleAdManager();
     try {
       const savedPhotos = localStorage.getItem(STORAGE_KEY_PHOTOS);
       if (savedPhotos) {
@@ -208,6 +233,20 @@ export default function App() {
     return newPhoto;
   };
 
+  // Interstitial route before revealing final photo editor
+  const handleOpenPhotoResult = (photo: CapturedPhoto) => {
+    setPendingPhotoForInterstitial(photo);
+    setIsInterstitialOpen(true);
+  };
+
+  const handleDismissInterstitial = () => {
+    setIsInterstitialOpen(false);
+    if (pendingPhotoForInterstitial) {
+      setActivePhotoForEditor(pendingPhotoForInterstitial);
+      setPendingPhotoForInterstitial(null);
+    }
+  };
+
   const handleCapture = () => {
     if (isCapturing) return;
 
@@ -233,7 +272,7 @@ export default function App() {
             const snapped = executeInstantSnap();
             setIsCapturing(false);
             if (snapped) {
-              setActivePhotoForEditor(snapped);
+              handleOpenPhotoResult(snapped);
             }
           }
         }
@@ -244,7 +283,7 @@ export default function App() {
       } else {
         const snapped = executeInstantSnap();
         if (snapped) {
-          setActivePhotoForEditor(snapped);
+          handleOpenPhotoResult(snapped);
         }
       }
     }
@@ -266,7 +305,7 @@ export default function App() {
       } else {
         setIsCapturing(false);
         if (snaps.length > 0) {
-          setActivePhotoForEditor(snaps[snaps.length - 1]);
+          handleOpenPhotoResult(snaps[snaps.length - 1]);
         }
       }
     };
@@ -309,8 +348,8 @@ export default function App() {
     localStorage.removeItem(STORAGE_KEY_USER);
   };
 
-  const handleAdClick = (ad: AdCreative) => {
-    alert(`${t.adSponsored}: ${ad.sponsor} - "${ad.title}"`);
+  const handleAdClick = () => {
+    // Handled by Google Ad Manager / AdSense slot
   };
 
   const aspectOptions: { id: AspectRatioType; label: string; tag?: string }[] = [
@@ -320,6 +359,8 @@ export default function App() {
     { id: '16x9', label: '16:9', tag: t.aspectWide },
     { id: 'strip', label: 'Tira 3x', tag: t.aspectStrip },
   ];
+
+  const currentAspectOpt = aspectOptions.find((opt) => opt.id === aspectRatio) || aspectOptions[0];
 
   // Bento Quick Stickers preview
   const bentoQuickStickers = STICKER_TEMPLATES.slice(0, 15);
@@ -354,34 +395,96 @@ export default function App() {
 
           {/* Top Floating Bar: Aspect Ratio Switcher */}
           <div className="relative z-20 w-full flex items-center justify-between gap-2 mb-3">
-            {/* Aspect Ratio Pills */}
-            <div className="flex items-center bg-black/40 backdrop-blur-md p-1 rounded-full border border-white/20 overflow-x-auto no-scrollbar shadow-xs">
-              {aspectOptions.map((opt) => {
-                const isSelected = aspectRatio === opt.id;
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setAspectRatio(opt.id)}
-                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all shrink-0 flex items-center gap-1 ${
-                      isSelected
-                        ? 'bg-white text-zinc-900 shadow-md scale-102'
-                        : 'text-white/80 hover:text-white hover:bg-white/10'
+            {/* Aspect Ratio Switcher (Dropdown on Mobile, Pills on Desktop) */}
+            <div className="relative" ref={aspectDropdownRef}>
+              {/* Mobile: Dropdown Trigger & Popover */}
+              <div className="sm:hidden relative">
+                <button
+                  id="btn-aspect-ratio-mobile-dropdown"
+                  type="button"
+                  onClick={() => setIsAspectDropdownOpen((prev) => !prev)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/50 backdrop-blur-md border border-white/20 text-white text-xs font-bold shadow-xs hover:bg-black/70 transition-all cursor-pointer"
+                >
+                  <span className="font-mono">{currentAspectOpt.label}</span>
+                  {currentAspectOpt.tag && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded font-mono uppercase bg-white/20 text-white">
+                      {currentAspectOpt.tag}
+                    </span>
+                  )}
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-white/80 transition-transform duration-200 ${
+                      isAspectDropdownOpen ? 'rotate-180' : ''
                     }`}
+                  />
+                </button>
+
+                {isAspectDropdownOpen && (
+                  <div
+                    id="menu-aspect-ratio-mobile"
+                    className="absolute top-full left-0 mt-2 w-44 bg-zinc-900/95 backdrop-blur-md border border-white/20 rounded-2xl p-1.5 shadow-2xl z-30 flex flex-col gap-1 animate-in fade-in zoom-in-95 duration-150"
                   >
-                    <span>{opt.label}</span>
-                    {opt.tag && (
-                      <span
-                        className={`text-[9px] px-1 rounded font-mono uppercase ${
-                          isSelected ? 'bg-zinc-200 text-zinc-900' : 'text-white/60'
-                        }`}
-                      >
-                        {opt.tag}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+                    {aspectOptions.map((opt) => {
+                      const isSelected = aspectRatio === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => {
+                            setAspectRatio(opt.id);
+                            setIsAspectDropdownOpen(false);
+                          }}
+                          className={`w-full px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
+                            isSelected
+                              ? 'bg-white text-zinc-900 shadow-sm'
+                              : 'text-white/80 hover:text-white hover:bg-white/10'
+                          }`}
+                        >
+                          <span className="font-mono">{opt.label}</span>
+                          {opt.tag && (
+                            <span
+                              className={`text-[9px] px-1.5 py-0.5 rounded font-mono uppercase ${
+                                isSelected ? 'bg-zinc-200 text-zinc-900' : 'text-white/60'
+                              }`}
+                            >
+                              {opt.tag}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Desktop: Aspect Ratio Pills (hidden on mobile) */}
+              <div className="hidden sm:flex items-center bg-black/40 backdrop-blur-md p-1 rounded-full border border-white/20 overflow-x-auto no-scrollbar shadow-xs">
+                {aspectOptions.map((opt) => {
+                  const isSelected = aspectRatio === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setAspectRatio(opt.id)}
+                      className={`px-3 py-1 rounded-full text-xs font-bold transition-all shrink-0 flex items-center gap-1 cursor-pointer ${
+                        isSelected
+                          ? 'bg-white text-zinc-900 shadow-md scale-102'
+                          : 'text-white/80 hover:text-white hover:bg-white/10'
+                      }`}
+                    >
+                      <span>{opt.label}</span>
+                      {opt.tag && (
+                        <span
+                          className={`text-[9px] px-1 rounded font-mono uppercase ${
+                            isSelected ? 'bg-zinc-200 text-zinc-900' : 'text-white/60'
+                          }`}
+                        >
+                          {opt.tag}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Timer Pills */}
@@ -747,8 +850,22 @@ export default function App() {
               </button>
             </div>
           </div>
+
+          {/* Small Leaderboard Ad below emojis and capture button */}
+          <SmallLeaderboardAd
+            onAdClick={handleAdClick}
+            t={t}
+          />
         </div>
       </main>
+
+      {/* Web Interstitial Ad before revealing photo result */}
+      <WebInterstitialAd
+        isOpen={isInterstitialOpen}
+        onDismiss={handleDismissInterstitial}
+        pendingPhoto={pendingPhotoForInterstitial}
+        t={t}
+      />
 
       {/* Drawers & Modals with translations */}
       <StickerDrawer

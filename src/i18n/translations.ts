@@ -127,6 +127,13 @@ export interface Translations {
   adSponsored: string;
   adRefreshIn: string;
   adClose: string;
+  adLeaderboardBadge: string;
+  adInterstitialBadge: string;
+  adInterstitialTitle: string;
+  adInterstitialSkipIn: (sec: number) => string;
+  adInterstitialSkipNow: string;
+  adInterstitialViewResult: string;
+  adPhotoReady: string;
 }
 
 export const TRANSLATIONS: Record<Language, Translations> = {
@@ -259,6 +266,13 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     adSponsored: 'Patrocinado',
     adRefreshIn: 'Atualiza em',
     adClose: 'Fechar',
+    adLeaderboardBadge: 'Publicidade',
+    adInterstitialBadge: 'Anúncio Intersticial',
+    adInterstitialTitle: 'Publicidade Patrocinada',
+    adInterstitialSkipIn: (sec: number) => `Pular anúncio em ${sec}s...`,
+    adInterstitialSkipNow: 'Pular Anúncio',
+    adInterstitialViewResult: 'Ver Minha Foto',
+    adPhotoReady: 'Sua foto está pronta e salva na galeria!',
   },
 
   en: {
@@ -390,6 +404,13 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     adSponsored: 'Sponsored',
     adRefreshIn: 'Refreshes in',
     adClose: 'Close',
+    adLeaderboardBadge: 'Advertisement',
+    adInterstitialBadge: 'Web Interstitial Ad',
+    adInterstitialTitle: 'Sponsored Advertisement',
+    adInterstitialSkipIn: (sec: number) => `Skip ad in ${sec}s...`,
+    adInterstitialSkipNow: 'Skip Ad',
+    adInterstitialViewResult: 'View My Photo',
+    adPhotoReady: 'Your photo is ready and saved to gallery!',
   },
 
   es: {
@@ -521,5 +542,12 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     adSponsored: 'Patrocinado',
     adRefreshIn: 'Se actualiza en',
     adClose: 'Cerrar',
+    adLeaderboardBadge: 'Publicidad',
+    adInterstitialBadge: 'Anuncio Intersticial',
+    adInterstitialTitle: 'Publicidad Patrocinada',
+    adInterstitialSkipIn: (sec: number) => `Saltar anuncio en ${sec}s...`,
+    adInterstitialSkipNow: 'Saltar Anuncio',
+    adInterstitialViewResult: 'Ver Mi Foto',
+    adPhotoReady: '¡Tu foto está lista y guardada en la galería!',
   },
 };
